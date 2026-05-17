@@ -1,8 +1,11 @@
+//Invocar dotenv en la primera línea para cargar las variables
+require('dotenv').config();
+
 const express = require('express');
 const WebSocket = require('ws');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT;
 
 // Servir archivos estáticos
 app.use(express.static('public'));
