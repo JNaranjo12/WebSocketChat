@@ -1,153 +1,197 @@
-const loginScreen = document.getElementById('loginScreen');
-const chatScreen = document.getElementById('chatScreen');
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js';
+import {
+    getAuth,
+    signInWithEmailAndPassword
+} from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js';
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDnjHdLCfs7Hu9seioPbnfGeVy9W2Fo2LI",
+    authDomain: "websocketchat-456a7.firebaseapp.com",
+    projectId: "websocketchat-456a7",
+    storageBucket: "websocketchat-456a7.firebasestorage.app",
+    messagingSenderId: "590489218268",
+    appId: "1:590489218268:web:ca387af0cab351f8845819"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const loginContainer = document.getElementById('login-container');
+const chatContainer = document.getElementById('chat-container');
 const loginForm = document.getElementById('loginForm');
+const loginBtn = document.getElementById('loginBtn');
+const emailInput = document.getElementById('emailInput');
+const passwordInput = document.getElementById('passwordInput');
+const loginError = document.getElementById('loginError');
+const displayUsername = document.getElementById('displayUsername');
+const statusText = document.getElementById('status');
+const messages = document.getElementById('messages');
 const messageForm = document.getElementById('messageForm');
-const usernameInput = document.getElementById('usernameInput');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
-const messages = document.getElementById('messages');
-const statusText = document.getElementById('status');
-const activeUser = document.getElementById('activeUser');
-const connectionDot = document.getElementById('connectionDot');
-const themeToggle = document.getElementById('themeToggle');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
 
-const BACKEND_PORT = '3000';
-const THEME_KEY = 'chat-theme';
+let socket = null;
+let usernameActual = '';
 
-let ws;
-let connected = false;
-let currentUsername = '';
-let reconnectTimer;
+const moonIcon = `
+    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.02 3.25 7.28 7.26 7.28.53 0 1.04-.057 1.53-.167a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.34 16C3.73 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278z"/>
+    </svg>
+`;
 
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-bs-theme', theme);
-    themeToggle.checked = theme === 'dark';
-    localStorage.setItem(THEME_KEY, theme);
+const sunIcon = `
+    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 16 8zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.414a.5.5 0 1 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zM4.464 11.536a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.464a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/>
+    </svg>
+`;
+
+function actualizarIconoTema() {
+    const modoOscuroActivo = document.body.classList.contains('mode-dark');
+    themeToggleBtn.innerHTML = modoOscuroActivo ? sunIcon : moonIcon;
+    themeToggleBtn.setAttribute(
+        'aria-label',
+        modoOscuroActivo ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'
+    );
 }
 
-function initializeTheme() {
-    const savedTheme = localStorage.getItem(THEME_KEY);
-    const preferredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    applyTheme(savedTheme || preferredTheme);
+function mostrarError(mensaje) {
+    loginError.textContent = mensaje;
 }
 
-function setConnectionState(isConnected, message) {
-    connected = isConnected;
-    sendBtn.disabled = !isConnected;
-    statusText.textContent = message;
-    connectionDot.classList.toggle('is-connected', isConnected);
+function habilitarChat(habilitado) {
+    messageInput.disabled = !habilitado;
+    sendBtn.disabled = !habilitado;
 }
 
-function getWebSocketUrl() {
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${location.hostname}:${BACKEND_PORT}`;
+function obtenerHora(valor) {
+    if (valor) {
+        return valor;
+    }
+
+    return new Intl.DateTimeFormat('es-EC', {
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(new Date());
 }
 
-function connect() {
-    clearTimeout(reconnectTimer);
-    setConnectionState(false, 'Conectando...');
+function agregarMensaje({ author, username, autor, text, message, mensaje, timestamp, time, hora }) {
+    const autorMensaje = author || username || autor || 'Anonimo';
+    const textoMensaje = text || message || mensaje || '';
+    const horaMensaje = obtenerHora(timestamp || time || hora);
+    const esMensajePropio = autorMensaje === usernameActual;
 
-    ws = new WebSocket(getWebSocketUrl());
+    const fila = document.createElement('div');
+    fila.className = `message-row ${esMensajePropio ? 'msg-left' : 'msg-right'}`;
 
-    ws.addEventListener('open', () => {
-        setConnectionState(true, 'Conectado');
-        messageInput.focus();
-    });
+    const burbuja = document.createElement('article');
+    burbuja.className = 'message-bubble';
 
-    ws.addEventListener('message', (event) => {
-        const msg = JSON.parse(event.data);
-        addMessage(msg);
-    });
+    const nombre = document.createElement('span');
+    nombre.className = 'message-author';
+    nombre.textContent = autorMensaje;
 
-    ws.addEventListener('close', () => {
-        setConnectionState(false, 'Desconectado. Reintentando conexión...');
-        reconnectTimer = setTimeout(connect, 3000);
-    });
+    const texto = document.createElement('p');
+    texto.className = 'message-text';
+    texto.textContent = textoMensaje;
 
-    ws.addEventListener('error', () => {
-        setConnectionState(false, 'No se pudo conectar con el servidor');
-    });
-}
+    const horaElemento = document.createElement('time');
+    horaElemento.className = 'message-time';
+    horaElemento.textContent = horaMensaje;
 
-function showChat() {
-    loginScreen.classList.add('d-none');
-    chatScreen.classList.remove('d-none');
-    activeUser.textContent = currentUsername;
-    connect();
-}
-
-function addMessage({ username, text, timestamp }) {
-    const isOwnMessage = username === currentUsername;
-    const row = document.createElement('div');
-    row.className = `message-row ${isOwnMessage ? 'own' : 'other'}`;
-
-    const bubble = document.createElement('article');
-    bubble.className = 'message-bubble';
-
-    const meta = document.createElement('div');
-    meta.className = 'message-meta';
-
-    const user = document.createElement('span');
-    user.className = 'message-username';
-    user.textContent = username;
-
-    const time = document.createElement('span');
-    time.textContent = timestamp || '';
-
-    const body = document.createElement('p');
-    body.className = 'message-text';
-    body.textContent = text;
-
-    meta.append(user, time);
-    bubble.append(meta, body);
-    row.appendChild(bubble);
-    messages.appendChild(row);
+    burbuja.append(nombre, texto, horaElemento);
+    fila.appendChild(burbuja);
+    messages.appendChild(fila);
     messages.scrollTop = messages.scrollHeight;
 }
 
-function sendMessage() {
-    const text = messageInput.value.trim();
+function iniciarConexionWebSocket() {
+    socket = new WebSocket('ws://localhost:3000');
+    statusText.textContent = 'Conectando...';
+    habilitarChat(false);
 
-    if (!text) {
+    socket.onopen = () => {
+        statusText.textContent = 'Conectado';
+        habilitarChat(true);
         messageInput.focus();
+    };
+
+    socket.onmessage = (event) => {
+        const mensaje = JSON.parse(event.data);
+        agregarMensaje(mensaje);
+    };
+
+    socket.onerror = () => {
+        statusText.textContent = 'Error de conexión';
+        habilitarChat(false);
+    };
+
+    socket.onclose = () => {
+        statusText.textContent = 'Desconectado';
+        habilitarChat(false);
+    };
+}
+
+async function iniciarSesion(event) {
+    event.preventDefault();
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+
+    mostrarError('');
+
+    if (!email || !password) {
+        mostrarError('Ingresa email y contraseña.');
+        (!email ? emailInput : passwordInput).focus();
         return;
     }
 
-    if (!connected || ws.readyState !== WebSocket.OPEN) {
-        setConnectionState(false, 'No hay conexión al servidor');
+    try {
+        loginBtn.disabled = true;
+        await signInWithEmailAndPassword(auth, email, password);
+
+        usernameActual = email.split('@')[0];
+        displayUsername.textContent = usernameActual;
+        loginContainer.classList.add('d-none');
+        chatContainer.classList.remove('d-none');
+        iniciarConexionWebSocket();
+    } catch (error) {
+        mostrarError(error.message);
+    } finally {
+        loginBtn.disabled = false;
+    }
+}
+
+function enviarMensaje(event) {
+    event.preventDefault();
+
+    const texto = messageInput.value.trim();
+
+    if (!texto || !socket || socket.readyState !== WebSocket.OPEN) {
         return;
     }
 
-    ws.send(JSON.stringify({
-        username: currentUsername,
-        text
+    socket.send(JSON.stringify({
+        username: usernameActual,
+        text: texto,
+        timestamp: obtenerHora()
     }));
 
     messageInput.value = '';
     messageInput.focus();
 }
 
-loginForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    currentUsername = usernameInput.value.trim();
+loginBtn.addEventListener('click', iniciarSesion);
+loginForm.addEventListener('submit', iniciarSesion);
+messageForm.addEventListener('submit', enviarMensaje);
 
-    if (!currentUsername) {
-        usernameInput.focus();
-        return;
-    }
-
-    showChat();
+themeToggleBtn.addEventListener('click', () => {
+    document.body.classList.toggle('mode-dark');
+    document.body.classList.toggle('mode-light', !document.body.classList.contains('mode-dark'));
+    document.body.classList.toggle('bg-dark', document.body.classList.contains('mode-dark'));
+    document.body.classList.toggle('bg-light', !document.body.classList.contains('mode-dark'));
+    actualizarIconoTema();
 });
 
-messageForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    sendMessage();
-});
-
-themeToggle.addEventListener('change', () => {
-    applyTheme(themeToggle.checked ? 'dark' : 'light');
-});
-
-initializeTheme();
-sendBtn.disabled = true;
-usernameInput.focus();
+habilitarChat(false);
+actualizarIconoTema();
+emailInput.focus();
