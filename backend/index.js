@@ -5,6 +5,7 @@ const express = require('express');
 const WebSocket = require('ws');
 
 const app = express();
+// Leer la variable de entorno
 const port = process.env.PORT;
 
 // Servir archivos estáticos
@@ -16,7 +17,27 @@ const server = app.listen(port, () => {
 });
 
 // Crear servidor WebSocket
-const wss = new WebSocket.Server({ server });
+//const wss = new WebSocket.Server({ server }); -> Reemplazamos esta línea por las siguientes para agregar validación de origen
+
+// Leer el dominio permitido desde las variables de entorno
+const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3001';
+// Crear servidor WebSocket con validación de origen
+const wss = new WebSocket.Server({ 
+  server,
+  verifyClient: (info, callback) => {
+    // Capturar desde dónde intenta conectarse el cliente
+    const origin = info.req.headers.origin;
+
+    if (origin === allowedOrigin) {
+      // Si el origen coincide, dejamos pasar la conexión (true)
+      callback(true);
+    } else {
+      // Si es un intruso, imprimimos una alerta y rechazamos la conexión con error 403 (Prohibido)
+      console.warn(`⚠️ Intento de conexión bloqueado desde origen no autorizado: ${origin}`);
+      callback(false, 403, 'Forbidden');
+    }
+  }
+});
 
 // Almacenar conexiones activas
 const clients = new Set();
