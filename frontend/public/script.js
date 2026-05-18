@@ -20,6 +20,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+const loadingScreen = document.getElementById('loading-screen');
 const loginContainer = document.getElementById('login-container');
 const registerContainer = document.getElementById('register-container');
 const chatContainer = document.getElementById('chat-container');
@@ -56,6 +57,10 @@ function mostrarContenedor(contenedorActivo) {
     [loginContainer, registerContainer, chatContainer].forEach((container) => {
         container.classList.toggle('d-none', container !== contenedorActivo);
     });
+}
+
+function ocultarPantallaCarga() {
+    loadingScreen.classList.add('d-none');
 }
 
 function setChatEnabled(enabled) {
@@ -216,6 +221,7 @@ async function handleAuthenticatedUser(user) {
     pendingDisplayName = '';
     setCurrentUser(username);
     mostrarContenedor(chatContainer);
+    ocultarPantallaCarga();
 
     try {
         const token = await user.getIdToken();
@@ -237,6 +243,7 @@ function handleSignedOutUser() {
     setChatEnabled(false);
     statusText.textContent = 'Desconectado';
     mostrarContenedor(loginContainer);
+    ocultarPantallaCarga();
     loginEmailInput.focus();
 }
 
@@ -246,7 +253,10 @@ function alternarTema() {
     document.body.classList.toggle('bg-dark', isDark);
     document.body.classList.toggle('bg-light', !isDark);
     document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
-    themeToggleBtn.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
+    themeToggleBtn.innerHTML = isDark
+        ? '<i class="bi bi-sun-fill" aria-hidden="true"></i>'
+        : '<i class="bi bi-moon-fill" aria-hidden="true"></i>';
+    themeToggleBtn.setAttribute('aria-label', isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
 }
 
 showRegisterBtn.addEventListener('click', () => {
