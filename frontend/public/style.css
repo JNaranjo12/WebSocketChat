@@ -37,13 +37,21 @@
 }
 
 html {
+    width: 100%;
     height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
 }
 
 body {
-    min-height: 100vh;
-    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
     margin: 0;
+    padding: 0;
+    overflow: hidden;
     color: var(--color-text);
     background: var(--color-bg);
     transition: background-color 0.3s ease, background 0.3s ease, color 0.3s ease;
@@ -70,14 +78,21 @@ body.bg-dark {
 }
 
 #chat-container {
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
     width: 100%;
+    min-height: 100dvh;
     height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
 }
 
 #chat-container header {
+    flex-basis: auto;
     flex-grow: 0;
     flex-shrink: 0;
     height: 4.75rem;
@@ -138,6 +153,8 @@ body.bg-dark {
     flex-basis: 0;
     gap: 0.65rem;
     min-height: 0;
+    height: auto;
+    max-height: none;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
@@ -148,10 +165,13 @@ body.bg-dark {
 }
 
 #messageForm {
+    flex-basis: auto;
     flex-grow: 0;
     flex-shrink: 0;
     width: 100%;
-    padding-bottom: env(safe-area-inset-bottom) !important;
+    margin: 0;
+    background: var(--color-surface) !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
     z-index: 2;
 }
 
