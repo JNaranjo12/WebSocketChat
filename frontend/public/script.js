@@ -111,12 +111,12 @@ function agregarMensaje(data) {
     messages.scrollTop = messages.scrollHeight;
 }
 
-function iniciarConexionWebSocket() {
+function iniciarConexionWebSocket(token) {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         return;
     }
 
-    ws = new WebSocket('ws://localhost:3000');
+    ws = new WebSocket('ws://localhost:3000/?token=' + encodeURIComponent(token));
     statusText.textContent = 'Conectando...';
     setChatEnabled(false);
 
@@ -209,14 +209,21 @@ function enviarMensaje(event) {
     messageInput.focus();
 }
 
-function handleAuthenticatedUser(user) {
+async function handleAuthenticatedUser(user) {
     const username = user.displayName || pendingDisplayName || getEmailUsername(user.email || '');
 
     limpiarErrores();
     pendingDisplayName = '';
     setCurrentUser(username);
     mostrarContenedor(chatContainer);
-    iniciarConexionWebSocket();
+
+    try {
+        const token = await user.getIdToken();
+        iniciarConexionWebSocket(token);
+    } catch (error) {
+        statusText.textContent = 'No se pudo validar la sesion';
+        console.error('Error obteniendo token Firebase:', error);
+    }
 }
 
 function handleSignedOutUser() {

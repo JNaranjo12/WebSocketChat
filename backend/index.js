@@ -3,6 +3,12 @@ require('dotenv').config();
 
 const express = require('express');
 const WebSocket = require('ws');
+const admin = require('firebase-admin');
+const serviceAccount = require('./firebase-key.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 const app = express();
 // Leer la variable de entorno
@@ -20,7 +26,7 @@ const server = app.listen(port, () => {
 //const wss = new WebSocket.Server({ server }); -> Reemplazamos esta línea por las siguientes para agregar validación de origen
 
 // Leer el dominio permitido desde las variables de entorno
-const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3001';
+const allowedOrigin = process.env.ALLOWED_ORIGIN;
 // Crear servidor WebSocket con validación de origen
 const wss = new WebSocket.Server({ 
   server,
@@ -42,9 +48,26 @@ const wss = new WebSocket.Server({
 // Almacenar conexiones activas
 const clients = new Set();
 
-wss.on('connection', (ws) => {
+wss.on('connection', async (ws, req) => {
+  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+  const token = requestUrl.searchParams.get('token');
+
+  if (!token) {
+    ws.close(1008, 'Token ausente');
+    return;
+  }
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    ws.user = decodedToken.name || decodedToken.email;
+  } catch (error) {
+    console.error('JWT invalido:', error);
+    ws.close(1008, 'Firma JWT inválida');
+    return;
+  }
+
   clients.add(ws);
-  console.log('Cliente conectado. Total:', clients.size);
+  console.log(`Cliente autenticado: ${ws.user}. Total:`, clients.size);
 
   ws.on('message', (data) => {
     try {
@@ -55,7 +78,7 @@ wss.on('connection', (ws) => {
         hour12: true
       });
       const outgoingMessage = {
-        username: message.username,
+        username: ws.user,
         text: message.text,
         timestamp
       };
