@@ -82,7 +82,8 @@ wss.on('connection', async (ws, req) => {
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
-      const serverTimestamp = new Date().toLocaleTimeString('en-US', {
+      const serverTimestamp = new Date().toLocaleTimeString('es-EC', {
+        timeZone: 'America/Guayaquil',
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
