@@ -121,7 +121,10 @@ function iniciarConexionWebSocket(token) {
         return;
     }
 
-    ws = new WebSocket('ws://localhost:3000/?token=' + encodeURIComponent(token));
+    
+
+    //ws = new WebSocket('ws://localhost:3000/?token=' + encodeURIComponent(token));
+    ws = new WebSocket('wss://web-chat-backend-zaq7.onrender.com/?token=' + token);
     statusText.textContent = 'Conectando...';
     setChatEnabled(false);
 
