@@ -10,6 +10,8 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
+const db = admin.firestore();
+
 const app = express();
 // Leer la variable de entorno
 const port = process.env.PORT;
@@ -69,10 +71,10 @@ wss.on('connection', async (ws, req) => {
   clients.add(ws);
   console.log(`Cliente autenticado: ${ws.user}. Total:`, clients.size);
 
-  ws.on('message', (data) => {
+  ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
-      const timestamp = new Date().toLocaleTimeString('en-US', {
+      const serverTimestamp = new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
@@ -80,7 +82,7 @@ wss.on('connection', async (ws, req) => {
       const outgoingMessage = {
         username: ws.user,
         text: message.text,
-        timestamp
+        timestamp: serverTimestamp
       };
       
       // Reenviar mensaje a todos los clientes conectados
@@ -88,6 +90,13 @@ wss.on('connection', async (ws, req) => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(JSON.stringify(outgoingMessage));
         }
+      });
+
+      await db.collection('mensajes').add({
+        username: ws.user,
+        text: message.text,
+        timeString: serverTimestamp,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
     } catch (error) {
       console.error('Error procesando mensaje:', error);
