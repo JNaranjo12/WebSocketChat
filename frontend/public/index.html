@@ -81,8 +81,8 @@
         </div>
     </div>
 
-    <div id="chat-container" class="d-flex flex-column d-none">
-        <header class="chat-header d-flex align-items-center gap-3 px-3 py-3 border-bottom bg-body shadow-sm">
+    <div id="chat-container" class="d-flex flex-column overflow-hidden d-none">
+        <header class="chat-header d-flex flex-shrink-0 align-items-center gap-3 px-3 py-3 border-bottom bg-body shadow-sm">
             <div class="min-w-0">
                 <span class="fs-4 fw-bold d-block text-truncate" id="displayUsername"></span>
                 <small class="text-body-secondary" id="status">Desconectado</small>
@@ -98,9 +98,9 @@
             </div>
         </header>
 
-        <div id="messages" class="messages p-3" aria-live="polite"></div>
+        <div id="messages" class="messages flex-grow-1 p-3" aria-live="polite"></div>
 
-        <form id="messageForm" class="chat-footer d-flex gap-2 p-3 border-top bg-body" autocomplete="off">
+        <form id="messageForm" class="chat-footer d-flex flex-shrink-0 gap-2 px-3 pt-3 border-top bg-body" autocomplete="off">
             <label for="messageInput" class="visually-hidden">Mensaje</label>
             <input type="text" id="messageInput" class="form-control" placeholder="Escribe tu mensaje..." maxlength="500" disabled>
             <button id="sendBtn" type="submit" class="btn btn-success" disabled>Enviar</button>
