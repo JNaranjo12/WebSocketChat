@@ -4,7 +4,15 @@ require('dotenv').config();
 const express = require('express');
 const WebSocket = require('ws');
 const admin = require('firebase-admin');
-const serviceAccount = require('./firebase-key.json');
+let serviceAccount;
+
+if (process.env.GOOGLE_CREDENTIALS) {
+  // Si estamos en Render, leemos la variable de entorno
+  serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+} else {
+  // Si estamos en desarrollo local, leemos el archivo físico
+  serviceAccount = require('./firebase-key.json');
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
