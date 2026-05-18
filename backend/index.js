@@ -49,15 +49,21 @@ wss.on('connection', (ws) => {
   ws.on('message', (data) => {
     try {
       const message = JSON.parse(data);
+      const timestamp = new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      const outgoingMessage = {
+        username: message.username,
+        text: message.text,
+        timestamp
+      };
       
       // Reenviar mensaje a todos los clientes conectados
       clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({
-            username: message.username,
-            text: message.text,
-            timestamp: new Date().toLocaleTimeString()
-          }));
+          client.send(JSON.stringify(outgoingMessage));
         }
       });
     } catch (error) {

@@ -1,7 +1,11 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js';
 import {
     getAuth,
-    signInWithEmailAndPassword
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    updateProfile,
+    signOut,
+    onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -12,150 +16,176 @@ const firebaseConfig = {
     messagingSenderId: "590489218268",
     appId: "1:590489218268:web:ca387af0cab351f8845819"
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 const loginContainer = document.getElementById('login-container');
+const registerContainer = document.getElementById('register-container');
 const chatContainer = document.getElementById('chat-container');
+
 const loginForm = document.getElementById('loginForm');
+const loginEmailInput = document.getElementById('loginEmailInput');
+const loginPasswordInput = document.getElementById('loginPasswordInput');
 const loginBtn = document.getElementById('loginBtn');
-const emailInput = document.getElementById('emailInput');
-const passwordInput = document.getElementById('passwordInput');
+const showRegisterBtn = document.getElementById('showRegisterBtn');
 const loginError = document.getElementById('loginError');
+
+const registerForm = document.getElementById('registerForm');
+const registerUsernameInput = document.getElementById('registerUsernameInput');
+const registerEmailInput = document.getElementById('registerEmailInput');
+const registerPasswordInput = document.getElementById('registerPasswordInput');
+const registerBtn = document.getElementById('registerBtn');
+const showLoginBtn = document.getElementById('showLoginBtn');
+const registerError = document.getElementById('registerError');
+
 const displayUsername = document.getElementById('displayUsername');
 const statusText = document.getElementById('status');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const logoutBtn = document.getElementById('logoutBtn');
 const messages = document.getElementById('messages');
 const messageForm = document.getElementById('messageForm');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
-const themeToggleBtn = document.getElementById('themeToggleBtn');
 
-let socket = null;
-let usernameActual = '';
+let ws = null;
+let currentUsername = '';
+let pendingDisplayName = '';
 
-const moonIcon = `
-    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.02 3.25 7.28 7.26 7.28.53 0 1.04-.057 1.53-.167a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.34 16C3.73 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278z"/>
-    </svg>
-`;
-
-const sunIcon = `
-    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 16 8zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.414a.5.5 0 1 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zM4.464 11.536a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.464a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707z"/>
-    </svg>
-`;
-
-function actualizarIconoTema() {
-    const modoOscuroActivo = document.body.classList.contains('mode-dark');
-    themeToggleBtn.innerHTML = modoOscuroActivo ? sunIcon : moonIcon;
-    themeToggleBtn.setAttribute(
-        'aria-label',
-        modoOscuroActivo ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'
-    );
+function mostrarContenedor(contenedorActivo) {
+    [loginContainer, registerContainer, chatContainer].forEach((container) => {
+        container.classList.toggle('d-none', container !== contenedorActivo);
+    });
 }
 
-function mostrarError(mensaje) {
-    loginError.textContent = mensaje;
+function setChatEnabled(enabled) {
+    messageInput.disabled = !enabled;
+    sendBtn.disabled = !enabled;
 }
 
-function habilitarChat(habilitado) {
-    messageInput.disabled = !habilitado;
-    sendBtn.disabled = !habilitado;
+function getEmailUsername(email) {
+    return email.split('@')[0];
 }
 
-function obtenerHora(valor) {
-    if (valor) {
-        return valor;
-    }
-
-    return new Intl.DateTimeFormat('es-EC', {
-        hour: '2-digit',
-        minute: '2-digit'
-    }).format(new Date());
+function setCurrentUser(username) {
+    currentUsername = username;
+    displayUsername.textContent = username;
 }
 
-function agregarMensaje({ author, username, autor, text, message, mensaje, timestamp, time, hora }) {
-    const autorMensaje = author || username || autor || 'Anonimo';
-    const textoMensaje = text || message || mensaje || '';
-    const horaMensaje = obtenerHora(timestamp || time || hora);
-    const esMensajePropio = autorMensaje === usernameActual;
+function limpiarErrores() {
+    loginError.textContent = '';
+    registerError.textContent = '';
+}
 
-    const fila = document.createElement('div');
-    fila.className = `message-row ${esMensajePropio ? 'msg-left' : 'msg-right'}`;
+function crearBurbujaMensaje({ author, username, autor, displayName, text, message, mensaje, timestamp }) {
+    const messageAuthor = author || username || autor || displayName || 'Usuario';
+    const messageText = text || message || mensaje || '';
+    const isOwnMessage = messageAuthor === currentUsername;
 
-    const burbuja = document.createElement('article');
-    burbuja.className = 'message-bubble';
+    const row = document.createElement('div');
+    row.className = `message-row ${isOwnMessage ? 'msg-left' : 'msg-right'}`;
 
-    const nombre = document.createElement('span');
-    nombre.className = 'message-author';
-    nombre.textContent = autorMensaje;
+    const bubble = document.createElement('article');
+    bubble.className = 'message-bubble';
 
-    const texto = document.createElement('p');
-    texto.className = 'message-text';
-    texto.textContent = textoMensaje;
+    const authorElement = document.createElement('span');
+    authorElement.className = 'message-author';
+    authorElement.textContent = messageAuthor;
 
-    const horaElemento = document.createElement('time');
-    horaElemento.className = 'message-time';
-    horaElemento.textContent = horaMensaje;
+    const textElement = document.createElement('p');
+    textElement.className = 'message-text';
+    textElement.textContent = messageText;
 
-    burbuja.append(nombre, texto, horaElemento);
-    fila.appendChild(burbuja);
-    messages.appendChild(fila);
+    const timeElement = document.createElement('time');
+    timeElement.className = 'message-time';
+    timeElement.textContent = timestamp || '';
+
+    bubble.append(authorElement, textElement, timeElement);
+    row.appendChild(bubble);
+
+    return row;
+}
+
+function agregarMensaje(data) {
+    messages.appendChild(crearBurbujaMensaje(data));
     messages.scrollTop = messages.scrollHeight;
 }
 
 function iniciarConexionWebSocket() {
-    socket = new WebSocket('ws://localhost:3000');
-    statusText.textContent = 'Conectando...';
-    habilitarChat(false);
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
 
-    socket.onopen = () => {
+    ws = new WebSocket('ws://localhost:3000');
+    statusText.textContent = 'Conectando...';
+    setChatEnabled(false);
+
+    ws.onopen = () => {
         statusText.textContent = 'Conectado';
-        habilitarChat(true);
+        setChatEnabled(true);
         messageInput.focus();
     };
 
-    socket.onmessage = (event) => {
-        const mensaje = JSON.parse(event.data);
-        agregarMensaje(mensaje);
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        agregarMensaje(data);
     };
 
-    socket.onerror = () => {
-        statusText.textContent = 'Error de conexión';
-        habilitarChat(false);
+    ws.onerror = () => {
+        statusText.textContent = 'Error de conexion';
+        setChatEnabled(false);
     };
 
-    socket.onclose = () => {
+    ws.onclose = () => {
         statusText.textContent = 'Desconectado';
-        habilitarChat(false);
+        setChatEnabled(false);
+        ws = null;
     };
+}
+
+async function registrarUsuario(event) {
+    event.preventDefault();
+    limpiarErrores();
+
+    const username = registerUsernameInput.value.trim();
+    const email = registerEmailInput.value.trim();
+    const password = registerPasswordInput.value.trim();
+
+    if (!username || !email || !password) {
+        registerError.textContent = 'Completa nombre de usuario, correo y contraseña.';
+        return;
+    }
+
+    try {
+        registerBtn.disabled = true;
+        pendingDisplayName = username;
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(credential.user, { displayName: username });
+    } catch (error) {
+        pendingDisplayName = '';
+        registerError.textContent = error.message;
+    } finally {
+        registerBtn.disabled = false;
+    }
 }
 
 async function iniciarSesion(event) {
     event.preventDefault();
+    limpiarErrores();
 
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-
-    mostrarError('');
+    const email = loginEmailInput.value.trim();
+    const password = loginPasswordInput.value.trim();
 
     if (!email || !password) {
-        mostrarError('Ingresa email y contraseña.');
-        (!email ? emailInput : passwordInput).focus();
+        loginError.textContent = 'Ingresa correo y contraseña.';
         return;
     }
 
     try {
         loginBtn.disabled = true;
         await signInWithEmailAndPassword(auth, email, password);
-
-        usernameActual = email.split('@')[0];
-        displayUsername.textContent = usernameActual;
-        loginContainer.classList.add('d-none');
-        chatContainer.classList.remove('d-none');
-        iniciarConexionWebSocket();
     } catch (error) {
-        mostrarError(error.message);
+        loginError.textContent = error.message;
     } finally {
         loginBtn.disabled = false;
     }
@@ -164,34 +194,87 @@ async function iniciarSesion(event) {
 function enviarMensaje(event) {
     event.preventDefault();
 
-    const texto = messageInput.value.trim();
+    const text = messageInput.value.trim();
 
-    if (!texto || !socket || socket.readyState !== WebSocket.OPEN) {
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN) {
         return;
     }
 
-    socket.send(JSON.stringify({
-        username: usernameActual,
-        text: texto,
-        timestamp: obtenerHora()
+    ws.send(JSON.stringify({
+        username: currentUsername,
+        text
     }));
 
     messageInput.value = '';
     messageInput.focus();
 }
 
-loginBtn.addEventListener('click', iniciarSesion);
-loginForm.addEventListener('submit', iniciarSesion);
-messageForm.addEventListener('submit', enviarMensaje);
+function handleAuthenticatedUser(user) {
+    const username = user.displayName || pendingDisplayName || getEmailUsername(user.email || '');
 
-themeToggleBtn.addEventListener('click', () => {
-    document.body.classList.toggle('mode-dark');
-    document.body.classList.toggle('mode-light', !document.body.classList.contains('mode-dark'));
-    document.body.classList.toggle('bg-dark', document.body.classList.contains('mode-dark'));
-    document.body.classList.toggle('bg-light', !document.body.classList.contains('mode-dark'));
-    actualizarIconoTema();
+    limpiarErrores();
+    pendingDisplayName = '';
+    setCurrentUser(username);
+    mostrarContenedor(chatContainer);
+    iniciarConexionWebSocket();
+}
+
+function handleSignedOutUser() {
+    currentUsername = '';
+    pendingDisplayName = '';
+    displayUsername.textContent = '';
+    messages.innerHTML = '';
+    loginForm.reset();
+    registerForm.reset();
+    limpiarErrores();
+    setChatEnabled(false);
+    statusText.textContent = 'Desconectado';
+    mostrarContenedor(loginContainer);
+    loginEmailInput.focus();
+}
+
+function alternarTema() {
+    const isDark = document.body.classList.toggle('mode-dark');
+    document.body.classList.toggle('mode-light', !isDark);
+    document.body.classList.toggle('bg-dark', isDark);
+    document.body.classList.toggle('bg-light', !isDark);
+    document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+    themeToggleBtn.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
+}
+
+showRegisterBtn.addEventListener('click', () => {
+    limpiarErrores();
+    mostrarContenedor(registerContainer);
+    registerUsernameInput.focus();
 });
 
-habilitarChat(false);
-actualizarIconoTema();
-emailInput.focus();
+showLoginBtn.addEventListener('click', () => {
+    limpiarErrores();
+    mostrarContenedor(loginContainer);
+    loginEmailInput.focus();
+});
+
+loginBtn.addEventListener('click', iniciarSesion);
+registerBtn.addEventListener('click', registrarUsuario);
+loginForm.addEventListener('submit', iniciarSesion);
+registerForm.addEventListener('submit', registrarUsuario);
+messageForm.addEventListener('submit', enviarMensaje);
+themeToggleBtn.addEventListener('click', alternarTema);
+logoutBtn.addEventListener('click', () => {
+    if (ws) {
+        ws.close();
+    }
+
+    return signOut(auth);
+});
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        handleAuthenticatedUser(user);
+        return;
+    }
+
+    handleSignedOutUser();
+});
+
+setChatEnabled(false);

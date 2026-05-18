@@ -5,34 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FIS Chat</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-light mode-light">
     <div id="login-container" class="vh-100 d-flex align-items-center justify-content-center px-3">
-        <div class="card shadow-sm border-0" style="width: min(100%, 420px);">
+        <div class="card shadow-sm" style="width: min(100%, 420px);">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
                     <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white mb-3" style="width: 64px; height: 64px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 2a6 6 0 0 0-5.197 9.002L2.05 13.64a.5.5 0 0 0 .616.616l2.638-.753A6 6 0 1 0 8 2Zm0 1a5 5 0 1 1-2.352 9.41.5.5 0 0 0-.369-.04l-2.02.577.577-2.02a.5.5 0 0 0-.04-.369A5 5 0 0 1 8 3Z"/>
-                        </svg>
+                        <span class="fs-2 fw-bold">F</span>
                     </div>
-                    <h1 class="h3 mb-0">FIS Chat</h1>
+                    <h1 class="h3 mb-1">FIS Chat</h1>
+                    <p class="text-body-secondary mb-0">Inicia sesion para continuar</p>
                 </div>
 
                 <form id="loginForm" autocomplete="off">
                     <div class="form-floating mb-3">
-                        <input type="email" class="form-control" id="emailInput" placeholder="nombre@ejemplo.com" required>
-                        <label for="emailInput">Email</label>
+                        <input type="email" class="form-control" id="loginEmailInput" placeholder="correo@ejemplo.com">
+                        <label for="loginEmailInput">Correo</label>
                     </div>
 
                     <div class="form-floating mb-3">
-                        <input type="password" class="form-control" id="passwordInput" placeholder="Contraseña" required>
-                        <label for="passwordInput">Contraseña</label>
+                        <input type="password" class="form-control" id="loginPasswordInput" placeholder="Contraseña">
+                        <label for="loginPasswordInput">Contraseña</label>
                     </div>
 
-                    <button id="loginBtn" type="submit" class="btn btn-success w-100">Iniciar Sesión</button>
+                    <button id="loginBtn" type="button" class="btn btn-success w-100 mb-2">Iniciar Sesion</button>
+                    <button id="showRegisterBtn" type="button" class="btn btn-outline-secondary w-100">Crear cuenta</button>
                     <div id="loginError" class="text-danger small mt-3" role="alert"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="register-container" class="vh-100 d-flex align-items-center justify-content-center px-3 d-none">
+        <div class="card shadow-sm" style="width: min(100%, 420px);">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white mb-3" style="width: 64px; height: 64px;">
+                        <span class="fs-2 fw-bold">+</span>
+                    </div>
+                    <h1 class="h3 mb-1">Crear cuenta</h1>
+                    <p class="text-body-secondary mb-0">Registra tu usuario del chat</p>
+                </div>
+
+                <form id="registerForm" autocomplete="off">
+                    <div class="form-floating mb-3">
+                        <input type="text" class="form-control" id="registerUsernameInput" placeholder="Nombre de Usuario">
+                        <label for="registerUsernameInput">Nombre de Usuario</label>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="email" class="form-control" id="registerEmailInput" placeholder="correo@ejemplo.com">
+                        <label for="registerEmailInput">Correo</label>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="password" class="form-control" id="registerPasswordInput" placeholder="Contraseña">
+                        <label for="registerPasswordInput">Contraseña</label>
+                    </div>
+
+                    <button id="registerBtn" type="button" class="btn btn-success w-100 mb-2">Registrarse</button>
+                    <button id="showLoginBtn" type="button" class="btn btn-outline-secondary w-100">Volver al login</button>
+                    <div id="registerError" class="text-danger small mt-3" role="alert"></div>
                 </form>
             </div>
         </div>
@@ -44,16 +80,22 @@
                 <span class="fw-semibold d-block text-truncate" id="displayUsername"></span>
                 <small class="text-body-secondary" id="status">Desconectado</small>
             </div>
-            <button id="themeToggleBtn" type="button" class="btn btn-outline-secondary btn-sm" aria-label="Alternar modo oscuro">
-                Modo oscuro
-            </button>
+            <div class="d-flex align-items-center gap-2">
+                <button id="themeToggleBtn" type="button" class="btn btn-outline-secondary btn-sm" aria-label="Alternar modo oscuro">
+                    Modo oscuro
+                </button>
+                <button id="logoutBtn" type="button" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-box-arrow-left" aria-hidden="true"></i>
+                    <span class="d-none d-sm-inline ms-1">Salir</span>
+                </button>
+            </div>
         </header>
 
         <div id="messages" class="messages flex-grow-1 overflow-auto p-3" aria-live="polite"></div>
 
-        <form id="messageForm" class="d-flex gap-2 p-3 border-top bg-body">
+        <form id="messageForm" class="d-flex gap-2 p-3 border-top bg-body" autocomplete="off">
             <label for="messageInput" class="visually-hidden">Mensaje</label>
-            <input type="text" id="messageInput" class="form-control" placeholder="Escribe tu mensaje..." maxlength="500" autocomplete="off" disabled>
+            <input type="text" id="messageInput" class="form-control" placeholder="Escribe tu mensaje..." maxlength="500" disabled>
             <button id="sendBtn" type="submit" class="btn btn-success" disabled>Enviar</button>
         </form>
     </div>
